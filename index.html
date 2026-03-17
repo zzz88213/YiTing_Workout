@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>健身 Log V1.1</title>
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#2c3e50">
+    <link rel="apple-touch-icon" href="./icon.png">
+    <style>
+        :root {
+            --bg-color: #121212;
+            --surface-color: #1e1e1e;
+            --primary-color: #03dac6; /* 改個顏色區分版本 */
+            --text-color: #e0e0e0;
+            --input-bg: #2c2c2c;
+            --border-color: #333;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            padding: 20px;
+            margin: 0;
+            line-height: 1.5;
+        }
+        h2 { text-align: center; color: var(--primary-color); margin-bottom: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; color: #aaa; }
+        select, input, textarea, button {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background-color: var(--input-bg);
+            color: var(--text-color);
+            font-size: 16px; 
+            box-sizing: border-box;
+            appearance: none;
+        }
+        select:focus, input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+        .row { display: flex; gap: 10px; }
+        .row > div { flex: 1; }
+        
+        button {
+            background-color: var(--primary-color);
+            color: #000;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            border: none;
+        }
+        button:active { opacity: 0.8; }
+        button.secondary { background-color: #bb86fc; margin-top: 5px; }
+        
+        #log-display {
+            margin-top: 30px;
+            background-color: var(--surface-color);
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            font-size: 12px;
+            border: 1px solid var(--border-color);
+            min-height: 100px;
+        }
+        .history-item {
+            background: #252525;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            border-left: 4px solid var(--primary-color);
+            font-size: 0.9em;
+        }
+        .history-meta { font-size: 0.8em; color: #888; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🏋️‍♂️ Protocol Engineer Workout Log</h2>
+    
+    <div class="form-group">
+        <label>日期 (Date)</label>
+        <input type="date" id="date">
+    </div>
+
+    <div class="form-group">
+        <label>部位 (Muscle Group)</label>
+        <select id="muscleGroup">
+            <option value="" disabled selected>請選擇部位</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>動作 (Exercise)</label>
+        <select id="exercise">
+            <option value="" disabled selected>先選擇部位</option>
+        </select>
+    </div>
+
+    <div class="row">
+        <div class="form-group">
+            <label>重量 (kg)</label>
+            <select id="weight"></select>
+        </div>
+        <div class="form-group">
+            <label>次數 (Reps)</label>
+            <select id="reps"></select>
+        </div>
+        <div class="form-group">
+            <label>組數 (Sets)</label>
+            <select id="sets"></select>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>備註 (Notes / RPE)</label>
+        <input type="text" id="notes" placeholder="e.g. 力竭, 手錶沒電...">
+    </div>
+
+    <button onclick="addLog()">➕ 紀錄這組 (Add Log)</button>
+    
+    <div id="history-list" style="margin-top:20px;"></div>
+
+    <label style="margin-top: 30px;">CSV 輸出區 (無標題列)</label>
+    <textarea id="log-display" readonly></textarea>
+    
+    <button class="secondary" onclick="robustCopyToClipboard()">📋 複製 CSV</button>
+    <button class="secondary" onclick="clearData()" style="background-color: #333; color: #fff">🗑️ 清除所有紀錄</button>
+</div>
+
+<script>
+    // --- Data Configuration (V8.0 課表) ---
+const menu = {
+        "Chest": ["Chest Press (Machine)", "Incline Chest Press (30deg)", "Cable Fly", "DB Flat Fly", "DB Chest Press","Sved Press","DB Floor Press"],
+        "Back": ["Lat Pulldown", "DB One-Arm Row", "Face Pull", "Cable Row"],
+        "Legs": ["Leg Extension", "Seated Leg Curl", "DB RDL (B-Stance)", "DB Goblet Squat","DB Neutral Grip Deadlift"],
+        "Shoulder": ["DB Side Raise", "DB Rear Delt Fly", "Cable Side Raise", "Cable Rear Delt Fly", "Cable Face Pull", "Cable External Rotation"],
+        "Arms": ["DB Bicep Curl", "DB Overhead Tricep Ext","DB Floor Skull Crushers", "Cable Bicep Curl", "Cable Tricep Curl,", "Cable Tricep Pushdown"],
+        "Leg (Bone)": ["Trap Bar Squat","Trap Bar Deadlift", "Farmer's Walk", "Bulgarian Split Squat","Speed Jumping"],
+        "Cardio": ["Zone 2 Spin Bike", "HIIT Spin Bike", "Jumping Jacks","Speed Jumping"]
+    };
+
+
+    // --- Initialization ---
+    window.onload = function() {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('date').value = today;
+
+        const muscleSelect = document.getElementById('muscleGroup');
+        for (let key in menu) {
+            let opt = document.createElement('option');
+            opt.value = key;
+            opt.innerHTML = key;
+            muscleSelect.appendChild(opt);
+        }
+
+        const weightSelect = document.getElementById('weight');
+        let opt8 = document.createElement('option');
+        opt8.value = 8;
+        opt8.innerHTML = 8;
+        weightSelect.appendChild(opt8);
+        for (let i = 0; i <= 60; i += 3) {
+            let opt = document.createElement('option');
+            opt.value = i;
+            opt.innerHTML = i;
+            weightSelect.appendChild(opt);
+        }
+        for (let i = 2.5; i <= 100; i += 2.5) {
+            let opt = document.createElement('option');
+            opt.value = i;
+            opt.innerHTML = i;
+            if (i === 10) opt.selected = true;
+            weightSelect.appendChild(opt);
+        }
+
+        const repsSelect = document.getElementById('reps');
+        let opt200 = document.createElement('option');
+        opt200.value = 200;
+        opt200.innerHTML = 200;
+        repsSelect.appendChild(opt200);
+        for (let i = 1; i <= 100; i++) {
+            let opt = document.createElement('option');
+            opt.value = i;
+            opt.innerHTML = i;
+            if (i === 12) opt.selected = true;
+            repsSelect.appendChild(opt);
+        }
+
+        const setsSelect = document.getElementById('sets');
+        for (let i = 1; i <= 10; i++) {
+            let opt = document.createElement('option');
+            opt.value = i;
+            opt.innerHTML = i;
+            setsSelect.appendChild(opt);
+        }
+
+        renderCSV();
+        renderHistoryList();
+    };
+
+    // --- Dynamic Dropdown Logic ---
+    document.getElementById('muscleGroup').addEventListener('change', function() {
+        const muscle = this.value;
+        const exerciseSelect = document.getElementById('exercise');
+        exerciseSelect.innerHTML = ''; 
+        
+        menu[muscle].forEach(ex => {
+            let opt = document.createElement('option');
+            opt.value = ex;
+            opt.innerHTML = ex;
+            exerciseSelect.appendChild(opt);
+        });
+    });
+
+    // --- Core Logic ---
+    function addLog() {
+        const date = document.getElementById('date').value;
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const dayName = days[new Date(date).getDay()];
+
+        const muscle = document.getElementById('muscleGroup').value;
+        const exercise = document.getElementById('exercise').value;
+        const weight = document.getElementById('weight').value;
+        const reps = document.getElementById('reps').value;
+        const sets = document.getElementById('sets').value;
+        const notes = document.getElementById('notes').value || "-";
+
+        if (!muscle || !exercise) {
+            alert("請選擇部位和動作！");
+            return;
+        }
+
+        const newEntry = {
+            date, day: dayName, muscle, exercise, weight, reps, sets, notes, timestamp: new Date().getTime()
+        };
+
+        let logs = JSON.parse(localStorage.getItem('workout_logs') || "[]");
+        logs.push(newEntry);
+        localStorage.setItem('workout_logs', JSON.stringify(logs));
+
+        renderCSV();
+        renderHistoryList();
+        
+        document.getElementById('notes').value = '';
+    }
+
+    function renderCSV() {
+        let logs = JSON.parse(localStorage.getItem('workout_logs') || "[]");
+        
+        // 修改 1: 移除 CSV 標題列 (Headerless)
+        let csvContent = ""; 
+        
+        logs.forEach(log => {
+            csvContent += `${log.date},${log.day},${log.muscle},${log.exercise},${log.weight},${log.reps},${log.sets},${log.notes}\n`;
+        });
+
+        document.getElementById('log-display').value = csvContent;
+    }
+
+    function renderHistoryList() {
+        let logs = JSON.parse(localStorage.getItem('workout_logs') || "[]");
+        const listContainer = document.getElementById('history-list');
+        listContainer.innerHTML = '';
+        
+        const recentLogs = logs.slice().reverse().slice(0, 5);
+
+        recentLogs.forEach(log => {
+            let div = document.createElement('div');
+            div.className = 'history-item';
+            div.innerHTML = `
+                <div style="font-weight:bold; color:#fff;">${log.exercise}</div>
+                <div>${log.weight}kg x ${log.reps} reps x ${log.sets} sets</div>
+                <div class="history-meta">${log.date} (${log.day}) | ${log.notes}</div>
+            `;
+            listContainer.appendChild(div);
+        });
+    }
+
+    // 修改 2: 強健的複製功能 (Robust Copy)
+    function robustCopyToClipboard() {
+        const textArea = document.getElementById("log-display");
+        
+        // 1. 手機端必須先選取文字
+        textArea.select();
+        textArea.setSelectionRange(0, 99999); // 針對 iOS/Android 的選取修正
+
+        // 2. 嘗試使用現代 API (需要 HTTPS 或 localhost)
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(textArea.value).then(() => {
+                alert("CSV 已複製！(API)");
+            }).catch(err => {
+                // 如果失敗，退回舊方法
+                fallbackCopyText(textArea);
+            });
+        } else {
+            // 3. 如果是 file:// 協定 (本地開啟)，直接用舊方法
+            fallbackCopyText(textArea);
+        }
+    }
+
+    function fallbackCopyText(textArea) {
+        try {
+            // 這是舊版但相容性最高的方法，特別是在 Android Chrome 開本地檔案時
+            document.execCommand('copy');
+            alert("CSV 已複製！(Legacy Mode)");
+        } catch (err) {
+            alert("複製失敗，請手動全選複製。");
+        }
+    }
+
+    function clearData() {
+        if(confirm("確定要刪除所有紀錄嗎？此動作無法復原。")) {
+            localStorage.removeItem('workout_logs');
+            renderCSV();
+            renderHistoryList();
+        }
+    }
+
+</script>
+
+</body>
+</html>
+
+
