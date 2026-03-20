@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>健身 Log V1.1</title>
+    <title>健身 Log V1.2</title>
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#2c3e50">
     <link rel="apple-touch-icon" href="./icon.png">
@@ -82,7 +82,7 @@
 <body>
 
 <div class="container">
-    <h2>🏋️‍♂️ Workout Log</h2>
+    <h2>🏋️‍♂️ Workout Log v1.2</h2>
     
     <div class="form-group">
         <label>日期 (Date)</label>
@@ -140,7 +140,7 @@ const menu = {
         "Chest": ["Chest Press (Machine)", "Incline Chest Press (30deg)", "Cable Fly", "DB Flat Fly", "DB Chest Press","Sved Press","DB Floor Press"],
         "Back": ["Lat Pulldown", "DB One-Arm Row", "Face Pull", "Cable Row"],
         "Legs": ["Leg Extension", "Seated Leg Curl", "DB RDL (B-Stance)", "DB Goblet Squat","DB Neutral Grip Deadlift"],
-        "Shoulder": ["DB Side Raise", "DB Rear Delt Fly", "Cable Side Raise", "Cable Rear Delt Fly", "Cable Face Pull", "Cable External Rotation"],
+        "Shoulder": [ "Cable Side Raise", "Cable Rear Delt Fly", "Cable Face Pull", "Cable External Rotation", "Cable 90/90 External Rotation", "DB Side Raise", "DB Rear Delt Fly"],
         "Arms": ["DB Bicep Curl", "DB Overhead Tricep Ext","DB Floor Skull Crushers", "Cable Bicep Curl", "Cable Tricep Curl,", "Cable Tricep Pushdown"],
         "Leg (Bone)": ["Trap Bar Squat","Trap Bar Deadlift", "Farmer's Walk", "Bulgarian Split Squat","Speed Jumping"],
         "Cardio": ["Zone 2 Spin Bike", "HIIT Spin Bike", "Jumping Jacks","Speed Jumping"]
@@ -240,9 +240,31 @@ const menu = {
             date, day: dayName, muscle, exercise, weight, reps, sets, notes, timestamp: new Date().getTime()
         };
 
-        let logs = JSON.parse(localStorage.getItem('workout_logs') || "[]");
-        logs.push(newEntry);
-        localStorage.setItem('workout_logs', JSON.stringify(logs));
+let logs = JSON.parse(localStorage.getItem('workout_logs') || "[]");
+        
+        // --- 修改：比對最後一筆紀錄，相同則合併組數 ---
+        if (logs.length > 0) {
+            let lastLog = logs[logs.length - 1];
+            if (
+                lastLog.date === date &&
+                lastLog.muscle === muscle &&
+                lastLog.exercise === exercise &&
+                lastLog.weight === weight &&
+                lastLog.reps === reps &&
+                lastLog.notes === notes
+            ) {
+                // 條件皆符合，直接累加 Sets，並更新時間戳
+                lastLog.sets = (parseInt(lastLog.sets) + parseInt(sets)).toString();
+                lastLog.timestamp = new Date().getTime();
+            } else {
+                logs.push(newEntry);
+            }
+        } else {
+            logs.push(newEntry);
+        }
+        // -------------------------------------------
+
+        localStorage.setItem('workout_logs', JSON.stringify(logs));
 
         renderCSV();
         renderHistoryList();
@@ -273,15 +295,36 @@ const menu = {
         recentLogs.forEach(log => {
             let div = document.createElement('div');
             div.className = 'history-item';
-            div.innerHTML = `
-                <div style="font-weight:bold; color:#fff;">${log.exercise}</div>
-                <div>${log.weight}kg x ${log.reps} reps x ${log.sets} sets</div>
-                <div class="history-meta">${log.date} (${log.day}) | ${log.notes}</div>
-            `;
+            // --- 修改：加入排版與刪除按鈕 ---
+            div.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight:bold; color:#fff;">${log.exercise}</div>
+                        <div>${log.weight}kg x ${log.reps} reps x ${log.sets} sets</div>
+                        <div class="history-meta">${log.date} (${log.day}) | ${log.notes}</div>
+                    </div>
+                    <button onclick="deleteLog(${log.timestamp})" style="background-color: #cf6679; color: #000; border-radius: 5px; width: 40px; height: 40px; padding: 0; margin: 0; display: flex; justify-content: center; align-items: center; font-size: 24px;">-</button>
+                </div>
+            `;
+            // --------------------------------
             listContainer.appendChild(div);
         });
     }
 
+    // --- 新增：單筆刪除功能 ---
+    function deleteLog(timestamp) {
+        if(confirm("確定要刪除這組紀錄嗎？")) {
+            let logs = JSON.parse(localStorage.getItem('workout_logs') || "[]");
+            // 過濾掉傳入的 timestamp，保留其他的紀錄
+            logs = logs.filter(log => log.timestamp !== timestamp);
+            localStorage.setItem('workout_logs', JSON.stringify(logs));
+            
+            // 重新渲染畫面
+            renderCSV();
+            renderHistoryList();
+        }
+    }
+  
     // 修改 2: 強健的複製功能 (Robust Copy)
     function robustCopyToClipboard() {
         const textArea = document.getElementById("log-display");
