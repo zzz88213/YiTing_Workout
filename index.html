@@ -296,16 +296,7 @@ let logs = JSON.parse(localStorage.getItem('workout_logs') || "[]");
             let div = document.createElement('div');
             div.className = 'history-item';
             // --- 修改：加入排版與刪除按鈕 ---
-            div.innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <div style="font-weight:bold; color:#fff;">${log.exercise}</div>
-                        <div>${log.weight}kg x ${log.reps} reps x ${log.sets} sets</div>
-                        <div class="history-meta">${log.date} (${log.day}) | ${log.notes}</div>
-                    </div>
-                    <button onclick="deleteLog(${log.timestamp})" style="background-color: #cf6679; color: #000; border-radius: 5px; width: 40px; height: 40px; padding: 0; margin: 0; display: flex; justify-content: center; align-items: center; font-size: 24px;">-</button>
-                </div>
-            `;
+            div.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center;"><div><div style="font-weight:bold; color:#fff;">${log.exercise}</div><div>${log.weight}kg x ${log.reps} reps x ${log.sets} sets</div><div class="history-meta">${log.date} (${log.day}) | ${log.notes}</div></div><button onclick="deleteLog(${log.timestamp})" style="background-color: #cf6679; color: #000; border-radius: 4px; width: 28px; height: 28px; padding: 0; margin-left: 10px; display: flex; justify-content: center; align-items: center; font-size: 18px; line-height: 1; flex-shrink: 0; border: none; cursor: pointer;">-</button></div>`;
             // --------------------------------
             listContainer.appendChild(div);
         });
