@@ -82,7 +82,7 @@
 <body>
 
 <div class="container">
-    <h2>🏋️‍♂️ Workout Log v1.4_test</h2>
+    <h2>🏋️‍♂️ Workout Log v1.4_test2</h2>
     
     <div class="form-group">
         <label>日期 (Date)</label>
@@ -345,7 +345,14 @@ let logs = JSON.parse(localStorage.getItem('workout_logs') || "[]");
             gainNode.connect(audioCtx.destination);
 
             oscillator.start();
-            oscillator.stop(audioCtx.currentTime + 0.3); // 播放持續 0.3 秒後停止
+            oscillator.stop(audioCtx.currentTime + 0.5); // 播放持續 0.5 秒後停止
+
+            // --- 新增：觸發裝置震動 ---
+            // 陣列代表 [震動毫秒, 暫停毫秒, 震動毫秒] -> 產生「搭、搭」兩下的節奏
+            if ("vibrate" in navigator) {
+                navigator.vibrate([200, 100, 200]);
+            }
+            // ---------------------------
         }, 3000);
         // --------------------------------
     }
