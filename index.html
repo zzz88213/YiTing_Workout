@@ -82,7 +82,7 @@
 <body>
 
 <div class="container">
-    <h2>🏋️‍♂️ Workout Log v1.4_test2</h2>
+    <h2>🏋️‍♂️ Workout Log v1.4_test3</h2>
     
     <div class="form-group">
         <label>日期 (Date)</label>
@@ -327,6 +327,10 @@ let logs = JSON.parse(localStorage.getItem('workout_logs') || "[]");
         
         document.getElementById('notes').value = '';
 
+        // 點擊瞬間立刻觸發，不要包在倒數計時裡
+        if ("vibrate" in navigator) {
+            navigator.vibrate([200, 100, 200]); 
+        }
         // --- 新增：3秒後播放測試音效 ---
         // 1. 必須在點擊事件當下立即建立或解鎖 AudioContext
         const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -347,11 +351,6 @@ let logs = JSON.parse(localStorage.getItem('workout_logs') || "[]");
             oscillator.start();
             oscillator.stop(audioCtx.currentTime + 0.5); // 播放持續 0.5 秒後停止
 
-            // --- 新增：觸發裝置震動 ---
-            // 陣列代表 [震動毫秒, 暫停毫秒, 震動毫秒] -> 產生「搭、搭」兩下的節奏
-            if ("vibrate" in navigator) {
-                navigator.vibrate([200, 100, 200]);
-            }
             // ---------------------------
         }, 3000);
         // --------------------------------
