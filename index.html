@@ -82,7 +82,7 @@
 <body>
 
 <div class="container">
-    <h2>🏋️‍♂️ Workout Log v1.4_test3</h2>
+    <h2>🏋️‍♂️ Workout Log v1.4</h2>
     
     <div class="form-group">
         <label>日期 (Date)</label>
@@ -331,29 +331,6 @@ let logs = JSON.parse(localStorage.getItem('workout_logs') || "[]");
         if ("vibrate" in navigator) {
             navigator.vibrate([200, 100, 200]); 
         }
-        // --- 新增：3秒後播放測試音效 ---
-        // 1. 必須在點擊事件當下立即建立或解鎖 AudioContext
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        const audioCtx = new AudioContext();
-
-        // 2. 設定倒數 3 秒 (3000 毫秒)
-        setTimeout(() => {
-            const oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-
-            oscillator.type = 'sine'; // 聲音波形：sine (柔和的嗶聲), square, sawtooth, triangle
-            oscillator.frequency.value = 880; // 頻率 880Hz (音高)
-            gainNode.gain.value = 0.5; // 音量大小 (0.0 到 1.0)
-
-            oscillator.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-
-            oscillator.start();
-            oscillator.stop(audioCtx.currentTime + 0.5); // 播放持續 0.5 秒後停止
-
-            // ---------------------------
-        }, 3000);
-        // --------------------------------
     }
 
     function renderCSV() {
