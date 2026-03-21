@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>健身 Log V1.2</title>
+    <title>健身 Log V1.4</title>
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#2c3e50">
     <link rel="apple-touch-icon" href="./icon.png">
@@ -82,7 +82,7 @@
 <body>
 
 <div class="container">
-    <h2>🏋️‍♂️ Workout Log v1.3</h2>
+    <h2>🏋️‍♂️ Workout Log v1.4</h2>
     
     <div class="form-group">
         <label>日期 (Date)</label>
@@ -205,18 +205,74 @@ const menu = {
     };
 
     // --- Dynamic Dropdown Logic ---
-    document.getElementById('muscleGroup').addEventListener('change', function() {
-        const muscle = this.value;
-        const exerciseSelect = document.getElementById('exercise');
-        exerciseSelect.innerHTML = ''; 
-        
-        menu[muscle].forEach(ex => {
-            let opt = document.createElement('option');
-            opt.value = ex;
-            opt.innerHTML = ex;
-            exerciseSelect.appendChild(opt);
-        });
-    });
+    // 建立一個共用函數來更新動作選單，方便重複呼叫
+    function updateExerciseDropdown(muscle, autoSelectExercise = "") {
+        const exerciseSelect = document.getElementById('exercise');
+        exerciseSelect.innerHTML = '<option value="" disabled>請選擇動作</option>'; 
+        
+        // 1. 取得預設動作
+        let exercises = [...menu[muscle]];
+        
+        // 2. 從 localStorage 撈取自訂動作並合併
+        let customMenu = JSON.parse(localStorage.getItem('custom_exercises') || "{}");
+        if (customMenu[muscle]) {
+            exercises = exercises.concat(customMenu[muscle]);
+        }
+
+        // 3. 渲染所有動作到下拉選單
+        exercises.forEach(ex => {
+            let opt = document.createElement('option');
+            opt.value = ex;
+            opt.innerHTML = ex;
+            if (ex === autoSelectExercise) opt.selected = true; // 自動選取剛新增的動作
+            exerciseSelect.appendChild(opt);
+        });
+
+        // 4. 在選單最下方加入「新增」選項
+        let addOpt = document.createElement('option');
+        addOpt.value = "__ADD_NEW__";
+        addOpt.innerHTML = "➕ 新增自訂動作...";
+        exerciseSelect.appendChild(addOpt);
+        
+        // 如果沒有指定要自動選取的動作，就預設停在提示選項
+        if (!autoSelectExercise) {
+            exerciseSelect.value = "";
+        }
+    }
+
+    // 當「部位」改變時，觸發更新動作選單
+    document.getElementById('muscleGroup').addEventListener('change', function() {
+        updateExerciseDropdown(this.value);
+    });
+
+    // 監聽「動作」下拉選單，處理新增自訂動作的邏輯
+    document.getElementById('exercise').addEventListener('change', function() {
+        if (this.value === "__ADD_NEW__") {
+            const muscle = document.getElementById('muscleGroup').value;
+            // 跳出輸入框讓使用者輸入
+            const newExercise = prompt(`請輸入新的 [${muscle}] 動作名稱：\n(例如：Decline DB Press)`);
+
+            if (newExercise && newExercise.trim() !== "") {
+                const cleanName = newExercise.trim();
+                let customMenu = JSON.parse(localStorage.getItem('custom_exercises') || "{}");
+                
+                // 如果該部位還沒有自訂陣列，先初始化
+                if (!customMenu[muscle]) customMenu[muscle] = [];
+
+                // 檢查是否已經存在 (包含預設和自訂)，避免重複加入
+                if (!menu[muscle].includes(cleanName) && !customMenu[muscle].includes(cleanName)) {
+                    customMenu[muscle].push(cleanName);
+                    localStorage.setItem('custom_exercises', JSON.stringify(customMenu));
+                }
+
+                // 重新渲染選單，並自動幫使用者選好剛才輸入的新動作
+                updateExerciseDropdown(muscle, cleanName);
+            } else {
+                // 如果使用者按取消或沒有輸入，把選單重置回空值
+                this.value = "";
+            }
+        }
+    });
 
     // --- Core Logic ---
     function addLog() {
