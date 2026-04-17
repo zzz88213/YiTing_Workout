@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>健身 Log V2.5</title>
+    <title>健身 Log V3.0</title>
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#2c3e50">
     <link rel="apple-touch-icon" href="./icon.png">
@@ -132,7 +132,7 @@
     <textarea id="log-display" readonly></textarea>
     
     <button class="secondary" onclick="robustCopyToClipboard()">📋 複製 CSV</button>
-    <button class="secondary" onclick="clearData()" style="background-color: #333; color: #fff">🗑️ 清除所有紀錄</button>
+    <button class="secondary" onclick="clearData()" style="background-color: #333; color: #fff">🧹 結束今日訓練 (清空畫面)</button>
 </div>
 
 <script>
@@ -325,31 +325,33 @@ const menu = {
             date, day: dayName, muscle, exercise, weight, reps, sets, notes, timestamp: new Date().getTime()
         };
 
-let logs = JSON.parse(localStorage.getItem('workout_logs') || "[]");
-        
-        // --- 修改：比對最後一筆紀錄，相同則合併組數 ---
-        if (logs.length > 0) {
-            let lastLog = logs[logs.length - 1];
-            if (
-                lastLog.date === date &&
-                lastLog.muscle === muscle &&
-                lastLog.exercise === exercise &&
-                lastLog.weight === weight &&
-                lastLog.reps === reps &&
-                lastLog.notes === notes
-            ) {
-                // 條件皆符合，直接累加 Sets，並更新時間戳
-                lastLog.sets = (parseInt(lastLog.sets) + parseInt(sets)).toString();
-                lastLog.timestamp = new Date().getTime();
-            } else {
-                logs.push(newEntry);
-            }
-        } else {
-            logs.push(newEntry);
-        }
-        // -------------------------------------------
+        let logs = JSON.parse(localStorage.getItem('workout_logs') || "[]");
+        
+        // --- 修改：只拿畫面上「還沒被清除」的紀錄來做比對 ---
+        let visibleLogs = logs.filter(log => !log.cleared);
 
-        localStorage.setItem('workout_logs', JSON.stringify(logs));
+        if (visibleLogs.length > 0) {
+            let lastLog = visibleLogs[visibleLogs.length - 1]; // 畫面上最新的一筆
+            if (
+                lastLog.date === date &&
+                lastLog.muscle === muscle &&
+                lastLog.exercise === exercise &&
+                lastLog.weight === weight &&
+                lastLog.reps === reps &&
+                lastLog.notes === notes
+            ) {
+                // 條件皆符合，直接累加 Sets，並更新時間戳
+                lastLog.sets = (parseInt(lastLog.sets) + parseInt(sets)).toString();
+                lastLog.timestamp = new Date().getTime();
+            } else {
+                logs.push(newEntry);
+            }
+        } else {
+            logs.push(newEntry);
+        }
+        // -------------------------------------------
+
+        localStorage.setItem('workout_logs', JSON.stringify(logs));
 
         renderCSV();
         renderHistoryList();
@@ -368,7 +370,10 @@ let logs = JSON.parse(localStorage.getItem('workout_logs') || "[]");
         // 修改 1: 移除 CSV 標題列 (Headerless)
         let csvContent = ""; 
         
-        logs.forEach(log => {
+        // --- 修改：只顯示未被標記 cleared 的紀錄 ---
+        let visibleLogs = logs.filter(log => !log.cleared);
+        
+        visibleLogs.forEach(log => {
             csvContent += `${log.date},${log.day},${log.muscle},${log.exercise},${log.weight},${log.reps},${log.sets},${log.notes}\n`;
         });
 
@@ -380,7 +385,9 @@ let logs = JSON.parse(localStorage.getItem('workout_logs') || "[]");
         const listContainer = document.getElementById('history-list');
         listContainer.innerHTML = '';
         
-        const recentLogs = logs.slice().reverse().slice(0, 5);
+        // --- 修改：只抓取未被標記 cleared 的紀錄來顯示 ---
+        let visibleLogs = logs.filter(log => !log.cleared);
+        const recentLogs = visibleLogs.slice().reverse().slice(0, 5);
 
         recentLogs.forEach(log => {
             let div = document.createElement('div');
@@ -460,8 +467,22 @@ let logs = JSON.parse(localStorage.getItem('workout_logs') || "[]");
     }
 
     function clearData() {
-        if(confirm("確定要刪除所有紀錄嗎？此動作無法復原。")) {
-            localStorage.removeItem('workout_logs');
+        if(confirm("確定要清空畫面上的紀錄嗎？\n(歷史紀錄仍會保存在背景，供下次自動帶入重量)")) {
+            let logs = JSON.parse(localStorage.getItem('workout_logs') || "[]");
+            
+            // 1. 把所有目前的紀錄打上「已清除」標記
+            logs.forEach(log => log.cleared = true);
+
+            // --- 新增：垃圾回收機制 (保留最近 90 天的紀錄就好) ---
+            const ninetyDaysAgo = new Date().getTime() - (90 * 24 * 60 * 60 * 1000);
+            logs = logs.filter(log => {
+                // 保留畫面上的(以防萬一)，以及 90 天內的隱藏歷史紀錄
+                return !log.cleared || log.timestamp > ninetyDaysAgo;
+            });
+            // ------------------------------------------------
+
+            localStorage.setItem('workout_logs', JSON.stringify(logs));
+            
             renderCSV();
             renderHistoryList();
         }
