@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>健身 Log V1.4</title>
+    <title>健身 Log V2.0</title>
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#2c3e50">
     <link rel="apple-touch-icon" href="./icon.png">
@@ -356,8 +356,8 @@ let logs = JSON.parse(localStorage.getItem('workout_logs') || "[]");
         recentLogs.forEach(log => {
             let div = document.createElement('div');
             div.className = 'history-item';
-            // --- 修改：加入排版與刪除按鈕 ---
-            div.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center;"><div><div style="font-weight:bold; color:#fff;">${log.exercise}</div><div>${log.weight}kg x ${log.reps} reps x ${log.sets} sets</div><div class="history-meta">${log.date} (${log.day}) | ${log.notes}</div></div><button onclick="deleteLog(${log.timestamp})" style="background-color: #cf6679; color: #000; border-radius: 4px; width: 28px; height: 28px; padding: 0; margin-left: 10px; display: flex; justify-content: center; align-items: center; font-size: 18px; line-height: 1; flex-shrink: 0; border: none; cursor: pointer;">-</button></div>`;
+            // --- 修改：加入 +/- 按鈕與垃圾桶圖示，並高亮 Sets 數字 ---
+            div.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center;"><div><div style="font-weight:bold; color:#fff;">${log.exercise}</div><div>${log.weight}kg x ${log.reps} reps x <strong style="color:var(--primary-color); font-size:1.1em;">${log.sets}</strong> sets</div><div class="history-meta">${log.date} (${log.day}) | ${log.notes}</div></div><div style="display: flex; gap: 6px;"><button onclick="updateSets(${log.timestamp}, -1)" style="background-color: #444; color: #fff; border-radius: 4px; width: 28px; height: 28px; padding: 0; display: flex; justify-content: center; align-items: center; font-size: 18px; border: none; cursor: pointer;">-</button><button onclick="updateSets(${log.timestamp}, 1)" style="background-color: #444; color: #fff; border-radius: 4px; width: 28px; height: 28px; padding: 0; display: flex; justify-content: center; align-items: center; font-size: 18px; border: none; cursor: pointer;">+</button><button onclick="deleteLog(${log.timestamp})" style="background-color: #cf6679; color: #000; border-radius: 4px; width: 28px; height: 28px; padding: 0; margin-left: 4px; display: flex; justify-content: center; align-items: center; font-size: 14px; border: none; cursor: pointer;">🗑️</button></div></div>`;
             // --------------------------------
             listContainer.appendChild(div);
         });
@@ -376,7 +376,28 @@ let logs = JSON.parse(localStorage.getItem('workout_logs') || "[]");
             renderHistoryList();
         }
     }
-  
+    // --- 新增：直接增減特定紀錄的組數 ---
+    function updateSets(timestamp, delta) {
+        let logs = JSON.parse(localStorage.getItem('workout_logs') || "[]");
+        let logIndex = logs.findIndex(log => log.timestamp === timestamp);
+        
+        if (logIndex !== -1) {
+            let newSets = parseInt(logs[logIndex].sets) + delta;
+            
+            if (newSets > 0) {
+                // 更新數量並存檔
+                logs[logIndex].sets = newSets.toString();
+                localStorage.setItem('workout_logs', JSON.stringify(logs));
+                
+                // 重新渲染畫面與 CSV
+                renderCSV();
+                renderHistoryList();
+            } else {
+                // 如果一路扣到 0，直接呼叫刪除功能
+                deleteLog(timestamp);
+            }
+        }
+    }
     // 修改 2: 強健的複製功能 (Robust Copy)
     function robustCopyToClipboard() {
         const textArea = document.getElementById("log-display");
