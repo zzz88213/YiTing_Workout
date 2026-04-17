@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>健身 Log V2.0</title>
+    <title>健身 Log V2.5</title>
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#2c3e50">
     <link rel="apple-touch-icon" href="./icon.png">
@@ -117,7 +117,8 @@
             <select id="sets"></select>
         </div>
     </div>
-
+    <div id="last-record-hint" style="color: var(--primary-color); font-size: 0.85em; margin-top: -5px; margin-bottom: 15px; display: none;">
+    </div>
     <div class="form-group">
         <label>備註 (Notes / RPE)</label>
         <input type="text" id="notes" placeholder="e.g. 力竭, 手錶沒電...">
@@ -240,15 +241,19 @@ const menu = {
         }
     }
 
-    // 當「部位」改變時，觸發更新動作選單
+    // 當「部位」改變時，觸發更新動作選單，並隱藏提示
     document.getElementById('muscleGroup').addEventListener('change', function() {
         updateExerciseDropdown(this.value);
+        document.getElementById('last-record-hint').style.display = 'none';
     });
 
-    // 監聽「動作」下拉選單，處理新增自訂動作的邏輯
+    // 監聽「動作」下拉選單，處理新增動作與「自動帶入上次紀錄」的邏輯
     document.getElementById('exercise').addEventListener('change', function() {
-        if (this.value === "__ADD_NEW__") {
-            const muscle = document.getElementById('muscleGroup').value;
+        const selectedExercise = this.value;
+        const muscle = document.getElementById('muscleGroup').value;
+        const hintDiv = document.getElementById('last-record-hint');
+
+        if (selectedExercise === "__ADD_NEW__") {
             // 跳出輸入框讓使用者輸入
             const newExercise = prompt(`請輸入新的 [${muscle}] 動作名稱：\n(例如：Decline DB Press)`);
 
@@ -256,21 +261,45 @@ const menu = {
                 const cleanName = newExercise.trim();
                 let customMenu = JSON.parse(localStorage.getItem('custom_exercises') || "{}");
                 
-                // 如果該部位還沒有自訂陣列，先初始化
                 if (!customMenu[muscle]) customMenu[muscle] = [];
-
-                // 檢查是否已經存在 (包含預設和自訂)，避免重複加入
                 if (!menu[muscle].includes(cleanName) && !customMenu[muscle].includes(cleanName)) {
                     customMenu[muscle].push(cleanName);
                     localStorage.setItem('custom_exercises', JSON.stringify(customMenu));
                 }
 
-                // 重新渲染選單，並自動幫使用者選好剛才輸入的新動作
                 updateExerciseDropdown(muscle, cleanName);
+                // 新增的動作沒有歷史紀錄，隱藏提示
+                hintDiv.style.display = 'none';
             } else {
-                // 如果使用者按取消或沒有輸入，把選單重置回空值
                 this.value = "";
+                hintDiv.style.display = 'none';
             }
+        } else if (selectedExercise !== "") {
+            // --- 新增：自動帶入上次紀錄邏輯 ---
+            let logs = JSON.parse(localStorage.getItem('workout_logs') || "[]");
+            let lastLog = null;
+            
+            // 從最新的紀錄往回找，找到同部位且同動作的第一筆
+            for (let i = logs.length - 1; i >= 0; i--) {
+                if (logs[i].muscle === muscle && logs[i].exercise === selectedExercise) {
+                    lastLog = logs[i];
+                    break;
+                }
+            }
+
+            if (lastLog) {
+                // 自動變更下拉選單的數值
+                document.getElementById('weight').value = lastLog.weight;
+                document.getElementById('reps').value = lastLog.reps;
+                
+                // 顯示提示文字
+                hintDiv.innerHTML = `💡 上次紀錄：${lastLog.weight}kg x ${lastLog.reps} reps (${lastLog.sets} sets) <span style="color:#888; font-size:0.9em;">- ${lastLog.date}</span>`;
+                hintDiv.style.display = "block";
+            } else {
+                // 沒練過這個動作，隱藏提示
+                hintDiv.style.display = "none";
+            }
+            // ------------------------------------
         }
     });
 
