@@ -138,13 +138,13 @@
 <script>
     // --- Data Configuration (V8.0 課表) ---
 const menu = {
-        "Chest": ["Chest Press (Machine)", "Incline Chest Press (30deg)", "Cable Fly", "DB Flat Fly", "DB Chest Press","Sved Press","DB Floor Press"],
-        "Back": ["Lat Pulldown", "DB One-Arm Row", "Face Pull", "Cable Row"],
-        "Legs": ["Leg Extension", "Seated Leg Curl", "DB RDL (B-Stance)", "DB Goblet Squat","DB Neutral Grip Deadlift", "DB RDL"],
-        "Shoulder": [ "Cable Side Raise", "Cable Rear Delt Fly", "Cable Face Pull", "Cable External Rotation", "Cable 90/90 External Rotation", "DB Side Raise", "DB Rear Delt Fly"],
-        "Arms": ["Cable Tricep Pushdown", "Cable Bicep Curl", "Cable Tricep Curl", "DB Bicep Curl", "DB Overhead Tricep Ext","DB Floor Skull Crushers"],
+        "Chest": ["Incline Chest Press (30deg)", "Low-to-High Cable Fly", "Chest Press (Machine)", "Cable Fly", "DB Flat Fly", "DB Chest Press"],
+        "Back": ["Straight-Arm Lat Pulldown", "Cable Row", "DB One-Arm Row", "Lat Pulldown"],
+        "Legs": ["Leg Extension", "Leg Curl", "DB RDL (B-Stance)", "DB Goblet Squat", "DB RDL"],
+        "Shoulder": [ "Cable Side Raise", "Cable Face Pull", "Cable External Rotation", "Cable 90/90 External Rotation", "Cable Rear Delt Fly", "DB Side Raise", "DB Rear Delt Fly"],
+        "Arms": ["Cable Bicep Curl", "Cable Hammer Curl", "Cable Overhead Tricep Extension", "Cable Tricep Pushdown", "DB Bicep Curl", "DB Overhead Tricep Ext"],
         "Leg (Bone)": ["Trap Bar Squat","Trap Bar Deadlift", "Farmer's Walk", "Bulgarian Split Squat","Speed Jumping"],
-        "Cardio": ["Zone 2 Spin Bike", "HIIT Spin Bike", "Jumping Jacks","Speed Jumping"]
+        "Cardio": ["Zone 2 Spin Bike", "HIIT Spin Bike", "Jumping Jacks"]
     };
 
 
@@ -161,24 +161,8 @@ const menu = {
             muscleSelect.appendChild(opt);
         }
 
-        const weightSelect = document.getElementById('weight');
-        let opt8 = document.createElement('option');
-        opt8.value = 8;
-        opt8.innerHTML = 8;
-        weightSelect.appendChild(opt8);
-        for (let i = 0; i <= 60; i += 3) {
-            let opt = document.createElement('option');
-            opt.value = i;
-            opt.innerHTML = i;
-            weightSelect.appendChild(opt);
-        }
-        for (let i = 2.5; i <= 100; i += 2.5) {
-            let opt = document.createElement('option');
-            opt.value = i;
-            opt.innerHTML = i;
-            if (i === 10) opt.selected = true;
-            weightSelect.appendChild(opt);
-        }
+        // --- 抽離重量選單渲染邏輯，方便新增後重繪 ---
+        renderWeightDropdown();
 
         const repsSelect = document.getElementById('reps');
         let opt200 = document.createElement('option');
@@ -205,6 +189,39 @@ const menu = {
         renderHistoryList();
     };
 
+// 渲染重量選單 (合併預設與自訂重量)
+    function renderWeightDropdown(autoSelectWeight = 10) {
+        const weightSelect = document.getElementById('weight');
+        weightSelect.innerHTML = ''; // 清空重新渲染
+
+        // 1. 產生預設重量陣列
+        let defaultWeights = [8];
+        for (let i = 0; i <= 60; i += 3) { if(!defaultWeights.includes(i)) defaultWeights.push(i); }
+        for (let i = 2.5; i <= 100; i += 2.5) { if(!defaultWeights.includes(i)) defaultWeights.push(i); }
+        
+        // 2. 撈取自訂重量並合併
+        let customWeights = JSON.parse(localStorage.getItem('custom_weights') || "[]");
+        let allWeights = [...new Set([...defaultWeights, ...customWeights])]; // 合併並去重
+        
+        // 3. 排序 (強制轉為數字排序，避免字串排序出錯)
+        allWeights.sort((a, b) => parseFloat(a) - parseFloat(b));
+
+        // 4. 渲染到選單
+        allWeights.forEach(w => {
+            let opt = document.createElement('option');
+            opt.value = w;
+            opt.innerHTML = w;
+            if (parseFloat(w) === parseFloat(autoSelectWeight)) opt.selected = true;
+            weightSelect.appendChild(opt);
+        });
+
+        // 5. 加入新增選項
+        let addOpt = document.createElement('option');
+        addOpt.value = "__ADD_NEW_WEIGHT__";
+        addOpt.innerHTML = "➕ 新增自訂重量...";
+        weightSelect.appendChild(addOpt);
+    }
+    
     // --- Dynamic Dropdown Logic ---
     // 建立一個共用函數來更新動作選單，方便重複呼叫
     function updateExerciseDropdown(muscle, autoSelectExercise = "") {
@@ -303,6 +320,32 @@ const menu = {
         }
     });
 
+    // 監聽「重量」下拉選單，處理新增自訂重量
+    document.getElementById('weight').addEventListener('change', function() {
+        if (this.value === "__ADD_NEW_WEIGHT__") {
+            const newWeight = prompt("請輸入新的重量 (kg)：\n(僅限數字，可輸入小數點，如 12.5)");
+
+            if (newWeight && newWeight.trim() !== "" && !isNaN(newWeight)) {
+                const cleanWeight = parseFloat(newWeight.trim());
+                let customWeights = JSON.parse(localStorage.getItem('custom_weights') || "[]");
+                
+                // 存入 localStorage (避免重複)
+                if (!customWeights.includes(cleanWeight)) {
+                    customWeights.push(cleanWeight);
+                    localStorage.setItem('custom_weights', JSON.stringify(customWeights));
+                }
+
+                // 重新渲染並選中新重量
+                renderWeightDropdown(cleanWeight);
+            } else {
+                // 輸入無效或取消，把選單切回預設的 10kg，避免卡在提示選項
+                if(newWeight !== null) alert("請輸入有效的數字！");
+                renderWeightDropdown(10); 
+            }
+        }
+    });
+    
+    
     // --- Core Logic ---
     function addLog() {
         const date = document.getElementById('date').value;
